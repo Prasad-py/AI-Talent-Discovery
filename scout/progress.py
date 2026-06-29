@@ -15,13 +15,23 @@ import threading
 import time
 from contextvars import ContextVar
 
+from rich.console import Console
+
 _current: ContextVar[str | None] = ContextVar("scout_job_id", default=None)
 _queues: dict[str, "queue.Queue"] = {}
 _results: dict[str, dict] = {}
 _status: dict[str, str] = {}
 _lock = threading.Lock()
+_console = Console()
 
 SENTINEL = {"stage": "__end__"}
+
+# stdout styling so the terminal trace is as detailed as the browser console.
+_STYLE = {
+    "stage": "bold cyan", "discover": "green", "score": "yellow", "360": "magenta",
+    "intake": "cyan", "plan": "cyan", "setup": "dim", "warn": "yellow",
+    "error": "bold red", "success": "bold green",
+}
 
 
 def start_job(job_id: str) -> None:
@@ -36,7 +46,19 @@ def bind(job_id: str) -> None:
     _current.set(job_id)
 
 
+def current_job() -> str | None:
+    """The job bound to the current thread (used to propagate into worker threads)."""
+    return _current.get()
+
+
 def emit(stage: str, message: str, data: dict | None = None, level: str = "info") -> None:
+    # Mirror to stdout so the terminal shows the same detailed live trace as the UI.
+    try:
+        style = _STYLE.get(level if level in _STYLE else stage, "white")
+        _console.print(f"[dim]{time.strftime('%H:%M:%S')}[/dim] [{style}]{stage:>8}[/] {message}")
+    except Exception:  # noqa: BLE001
+        pass
+
     job_id = _current.get()
     if not job_id:
         return

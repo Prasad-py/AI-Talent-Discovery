@@ -188,8 +188,79 @@ def score_candidate(candidate_id: int) -> dict:
     }
 
 
+_GENERIC_KW = {
+    "engineer", "engineers", "india", "developer", "developers", "model", "models",
+    "building", "build", "builders", "software", "experience", "strong", "hands",
+    "people", "candidate", "candidates", "who", "the", "and", "for", "with", "role",
+    "early", "career", "ship", "shipping", "real",
+}
+
+
+def _keyword_tokens(keywords) -> set[str]:
+    """Significant domain tokens from the brief's keywords (drops generic recruiting words)."""
+    import re
+
+    toks: set[str] = set()
+    for phrase in (keywords or []):
+        for w in re.findall(r"[a-zA-Z][a-zA-Z\-\+]+", str(phrase).lower()):
+            if len(w) >= 2 and w not in _GENERIC_KW:
+                toks.add(w)
+    return toks
+
+
+def prerank_ids(limit: int, in_geo_only: bool = False, geo_boost: float = 6.0,
+                keywords=None) -> list[int]:
+    """
+    Cheap, LLM-free triage to choose WHO gets the expensive 360 + scoring, using the hard
+    discovery signals we already have (OpenRank, merged PRs, Codeforces rating, HF
+    downloads, recent activity).
+
+    Location handling:
+      - in_geo_only=True  : only consider candidates located in the target geography.
+      - in_geo_only=False : strongly prefer in-geo candidates (geo_boost) but allow a
+                            standout out-of-geo person to make the cut if clearly stronger.
+    A candidate is "in-geo" when discovery tagged their location as the target country.
+    """
+    kw = _keyword_tokens(keywords)
+    scored: list[tuple[float, int]] = []
+    with session_scope() as session:
+        for c in session.exec(select(Candidate)).all():
+            in_geo = bool((c.meta or {}).get("country"))
+            if in_geo_only and not in_geo:
+                continue
+            sigs = session.exec(select(Signal).where(Signal.candidate_id == c.id)).all()
+            h = 0.0
+            # Domain relevance: boost candidates whose bio/name matches the brief.
+            if kw:
+                text = " ".join(filter(None, [
+                    c.name, c.headline, c.primary_github_login,
+                    str((c.meta or {}).get("company") or ""),
+                ])).lower()
+                hits = sum(1 for k in kw if k in text)
+                h += min(hits, 4) * 1.25
+            for s in sigs:
+                w = float(s.weight or 0.0)
+                if s.source == "openrank":
+                    h += min(w, 50) / 50 * 2.0
+                elif s.source == "github_pr":
+                    h += min(w, 100) / 100 * 2.0
+                elif s.source == "codeforces" and s.kind == "rating":
+                    h += min(w, 3500) / 3500 * 2.0
+                elif s.source == "huggingface":
+                    h += min(w, 1_000_000) / 1_000_000 * 2.0
+                elif s.source == "github_graphql":
+                    h += min(w, 200) / 200 * 1.0
+                elif s.source == "github_activity":
+                    h += min(w, 50) / 50 * 0.5
+            if in_geo and not in_geo_only:
+                h += geo_boost  # heavily prefer in-geo; only standout outsiders slip through
+            scored.append((h, c.id))
+    scored.sort(reverse=True)
+    return [cid for _h, cid in scored[:limit]]
+
+
 def score_ids(ids: list[int]) -> int:
-    """Re-score a specific set of candidates (authenticity assumed already assessed)."""
+    """Score a specific set of candidates (authenticity assumed already assessed)."""
     for cid in ids:
         score_candidate(cid)
     return len(ids)

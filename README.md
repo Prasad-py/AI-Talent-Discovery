@@ -9,6 +9,74 @@ Built on free public signals (GitHub + OpenRank, Codeforces, Hugging Face, Seman
 Scholar, Stack Overflow) with **Claude as the reasoning brain** for planning,
 classification, 360° research, scoring, and outreach.
 
+![Talent Scout — live run and ranked shortlist](docs/screenshot.png)
+
+## The big idea
+
+The best engineers are usually the *least* discovered. The strongest builders are
+heads-down shipping — not polishing a LinkedIn headline — so their real signal lives in
+places a résumé never captures: merged pull requests into serious repos, models other
+people actually download, answers that quietly earn reputation, contest ratings, talks,
+papers. Traditional sourcing searches what people *say about themselves*. **Talent Scout
+reads what they've actually built** — the way a brilliant technical recruiter would if
+they had unlimited time and read every commit — then independently verifies and scores
+each person from a full 360° view.
+
+You give it a sentence ("hungry forward-deployed AI engineers in Gurgaon who ship agentic
+systems") and it returns a ranked, evidence-backed shortlist of real humans you can hire —
+with their work, their links, their contact, and a clear reason for each pick.
+
+## Why it's clever (the interesting bits)
+
+- **It reads work, not words.** On GitHub it weighs merged-PR cadence and code reviews in
+  serious projects — the signals that are genuinely hard to fake — not stars or follower
+  counts (which are routinely gamed).
+- **OpenRank, not vanity metrics.** It uses X-Lab's PageRank-style *OpenRank* influence
+  (computed over the real collaboration graph of issues/PRs) to tell genuine impact from
+  noise — and to decide which repos are even worth mining in the first place.
+- **A bot / influencer filter.** A dedicated layer separates real human builders from
+  bots, "AI influencers," recruiters, and company accounts — fusing an LLM read of their
+  persona with hard behavioral signals (account age, merged-PR trust loops, real activity).
+  In testing it correctly flagged `pytorchmergebot` as a bot and kept it out of the list.
+- **"Undiscovered" is a feature, via a hireability lens.** It explicitly *down-ranks*
+  already-arrived founders/CTOs and FAANG-anchored profiles, and *up-ranks* hungry,
+  early-career, reachable, in-region builders — the people you can actually hire now.
+- **Recursive 360° research.** For each finalist it runs a bounded, self-directing
+  investigation across LinkedIn, GitHub, Kaggle, Hugging Face, Stack Overflow, X, Reddit,
+  blogs, talks and papers — deciding its own follow-up searches ("now find their LinkedIn…
+  now confirm the project") — and compiles a single **cited dossier** with every published
+  link and a contact.
+- **Everything is a 0–1 score with evidence + confidence.** No black-box verdicts: each of
+  12 metrics carries a score, a confidence, and a one-line citation of the evidence behind
+  it. A human always makes the final call.
+- **It plans itself.** Claude turns your free-text brief into the actual search plan —
+  geography, languages, repos, keywords, which sources to use, and which metrics to weight.
+  Ask for "Rust systems engineers in London" and it retargets the country, languages, and
+  even picks the right repos to mine — no code changes.
+- **Wide net in, ruthless funnel out.** It casts a deliberately broad discovery net
+  (hundreds of candidates), then narrows by *role fit* (below) so the expensive 360° budget
+  is spent only on vetted-promising people — and every final score is computed on a
+  *complete* profile, never thin data.
+- **It ranks by what they actually build.** Before the 360°, it reads each candidate's top
+  repositories (names, topics, descriptions) and runs an LLM relevance pass that scores how
+  well their real work matches *this* role — so a strong DevOps engineer doesn't crowd out a
+  real AI builder for an AI brief.
+- **Fast by design.** The heavy stages (360° research, scoring, discovery) run concurrently
+  with safe pooled DB access, turning a ~45-min run into ~15.
+- **It can get smarter.** As you mark real outcomes (advanced / hired / rejected), it
+  re-learns the scoring weights from what actually predicted success.
+
+## What a run feels like
+
+You type a description and a location, hit **Find candidates**, and watch a live, narrated
+timeline: *Understand brief → Discover people → 360° profiles → Score on full profile →
+Rank.* Each step shows what it's doing in plain English — *"Searching GitHub: Gurgaon /
+Python", "+ Apoorv Sadana (@apoorvsadana)", "Building a full 360° picture — candidate 3 of
+10", "Verifying this is a real human builder…"*. A few minutes later you get a ranked list
+with each person's **key achievements**, **why we chose them**, their cross-platform links
+and contact, and a per-metric scorecard — plus a one-click **PDF report** that opens with
+an exploration summary (how many sources and platforms were explored to produce it).
+
 ## Principles
 - **Agentic & adaptive.** Claude reads your brief and derives the search plan —
   geography, sources, languages, repos, keywords, and which metrics matter. Nothing is
@@ -58,15 +126,17 @@ GEMINI_API_KEY=...           # optional fallback / search grounding
 ./.venv/bin/python -m scout.cli serve        # → http://127.0.0.1:8000
 ```
 
-Enter a plain-language **description** + **location**, optionally tweak the **model** and
-advanced params (top N, research depth, pool cap, sources), and run. You'll watch it work
-live — *"Understanding your brief"*, *"Searching GitHub: Bengaluru / Python"*,
-*"Monitoring location specificity"*, *"Fetching from Hugging Face"*, *"Building 360
-profile…"*, *"Scoring…"* — and get a ranked list with **why to choose them**, all public
-data + links, contacts, and a per-metric breakdown with evidence.
+Enter a plain-language **description** + **location**, choose a **location preference**
+("only this location" vs "open to strong candidates elsewhere"), and run. The model is
+fixed (Claude); advanced params (candidates to profile & score, research depth, geo
+breadth, sources) have sensible defaults. You'll watch it work live — *"Understanding your
+brief"*, *"Searching GitHub: Gurgaon / Python"*, *"Building a full 360° picture — candidate
+3 of 10"*, *"Verifying this is a real human builder…"* — then get a ranked list with **key
+achievements**, **why to choose them**, links + contacts, a per-metric scorecard, and a
+**Download PDF report** button.
 
-By default the agent **chooses the sources** for your brief; you can force-include
-specific sources or pin parameters in the Advanced panel.
+By default the agent **chooses the sources** for your brief; you can force-include specific
+sources or pin parameters in the Advanced panel.
 
 ## CLI (headless / power use)
 
@@ -74,16 +144,17 @@ specific sources or pin parameters in the Advanced panel.
 python -m scout.cli check                       # validate config + API keys
 python -m scout.cli init-db                      # create tables
 
-python -m scout.cli deep-run --top 6             # full two-stage run + HTML report
+python -m scout.cli deep-run --top 10            # full two-stage run + PDF report
+python -m scout.cli deep-run --top 10 --no-geo-strict   # allow strong candidates elsewhere
 python -m scout.cli list                         # show the ranked shortlist
-python -m scout.cli report --top 25              # (re)generate the HTML report
+python -m scout.cli report --top 25              # (re)generate the PDF report
 
 # individual stages
 python -m scout.cli discover-geo                 # GitHub user-search by city/language
 python -m scout.cli codeforces-india             # country-rated competitive programmers
 python -m scout.cli discover --limit-repos 3     # mine contributors of high-OpenRank repos
 python -m scout.cli score                        # 12-metric scorecard on the pool
-python -m scout.cli deep-dive --top 6            # 360° deep view on the top candidates
+python -m scout.cli deep-dive --top 10           # 360° deep view on the top candidates
 python -m scout.cli outreach --top 10            # personalized outreach drafts
 
 # Stage 7 (optional): AI interview + feedback loop
@@ -124,7 +195,7 @@ logins that calibrate cold-start scoring). The UI's brief overrides these per ru
 - `scout/scoring/scorecard.py` — 12-metric rubric + composite
 - `scout/outreach/` — personalized message drafting
 - `scout/interview/` + `scout/feedback/` — AI interview + outcome-driven weight learning
-- `scout/report.py` — professional HTML report
+- `scout/report.py` — professional PDF report (with exploration summary)
 - `scout/webjob.py` + `webapp/` — web UI server, job runner, live progress (SSE)
 - `scout/pipeline.py` — headless two-stage orchestrator · `scout/cli.py` — command line
 

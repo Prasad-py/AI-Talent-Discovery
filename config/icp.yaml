@@ -88,13 +88,13 @@ github:
   min_merged_prs: 2          # merged PRs into target repos over the lookback window
   lookback_months: 24
   max_contributors_per_repo: 60
-  min_followers_geo: 3       # floor for geo user-search (keeps noise down)
+  min_followers_geo: 2       # floor for geo user-search (lower = wider net)
   max_users_per_query: 30    # cap per (area x language) geo search
 
 # Codeforces (open database of often-young Indian competitive programmers).
 codeforces:
-  min_rating: 2000           # >= Candidate Master; raise to tighten to the very best
-  max_users: 12
+  min_rating: 1700           # >= Expert; lower = wider net of younger talent
+  max_users: 40
 
 # X / Twitter discovery (xPool-style). Used to generate search queries.
 x:

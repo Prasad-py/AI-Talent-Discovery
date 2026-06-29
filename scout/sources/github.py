@@ -117,6 +117,36 @@ def get_user(login: str) -> Optional[dict]:
         return None
 
 
+def top_repos(login: str, limit: int = 10) -> list[dict]:
+    """
+    The user's own (non-fork) repos with names/descriptions/topics/languages/stars -
+    the single richest signal for judging what someone actually builds.
+    """
+    try:
+        data = _safe_get_json(
+            f"{REST}/users/{login}/repos",
+            params={"sort": "pushed", "per_page": 60, "type": "owner"},
+            ttl=86400 * 3,
+        )
+    except GitHubRateLimit:
+        raise
+    except Exception:  # noqa: BLE001
+        return []
+    repos = []
+    for r in data or []:
+        if r.get("fork"):
+            continue
+        repos.append({
+            "name": r.get("name"),
+            "description": r.get("description"),
+            "language": r.get("language"),
+            "stars": int(r.get("stargazers_count") or 0),
+            "topics": r.get("topics") or [],
+        })
+    repos.sort(key=lambda x: x["stars"], reverse=True)
+    return repos[:limit]
+
+
 def count_merged_prs(owner: str, repo: str, login: str) -> dict:
     """
     Merged PRs by `login` into `owner/repo` via the search API.

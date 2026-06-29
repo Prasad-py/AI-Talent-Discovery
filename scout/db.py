@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
+from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from . import models  # noqa: F401  (ensures tables are registered on import)
@@ -20,8 +21,19 @@ def get_engine():
         _engine = create_engine(
             settings.database_url,
             echo=False,
-            connect_args={"check_same_thread": False},
+            # timeout => SQLite busy_timeout: concurrent writers wait instead of erroring.
+            connect_args={"check_same_thread": False, "timeout": 30},
         )
+
+        @event.listens_for(_engine, "connect")
+        def _sqlite_pragmas(dbapi_conn, _record):  # noqa: ANN001
+            # WAL allows concurrent readers + a writer (needed for parallel stages).
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=30000")
+            cur.execute("PRAGMA synchronous=NORMAL")
+            cur.close()
+
     return _engine
 
 

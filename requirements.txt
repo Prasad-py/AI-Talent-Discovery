@@ -21,3 +21,6 @@ lxml>=5.2.2
 # Web UI
 fastapi>=0.111.0
 uvicorn>=0.30.1
+
+# PDF report
+reportlab>=4.2.0

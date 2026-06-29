@@ -54,6 +54,9 @@ SYNTH_SYSTEM = (
     '  "seniority": "student|junior|mid|senior|staff|lead|founder|unknown",\n'
     '  "career_stage": "student|early-career|mid-career|senior|founder|unknown",\n'
     '  "notable_work": ["specific projects/models/papers/products"],\n'
+    '  "key_achievements": ["3-5 concrete, impressive accomplishments with specifics/numbers where possible '
+    '- e.g. authored a library with X stars/downloads, won/placed in a named hackathon or competition, core '
+    'contributor to a well-known project, shipped a product used by N people, published a cited paper"],\n'
     '  "tech_stack": ["..."],\n'
     '  "highlights": ["sharp, specific facts useful for personalized outreach"],\n'
     '  "platform_presence": {"github": "metric/summary or null", "huggingface": "...", "kaggle": "...", "x": "...", "linkedin": "...", "reddit": "...", "scholar": "...", "stackoverflow": "...", "codeforces": "...", "website": "...", "youtube": "..."},\n'
@@ -249,8 +252,12 @@ def profile360_top(top: int = 10, max_rounds: int = 4) -> list[int]:
             ).all()
         ids = [c.id for c in rows]
 
+    from ..progress import emit
+
     done = []
-    for cid in ids:
+    for i, cid in enumerate(ids, 1):
+        emit("360", f"Building a full 360-degree picture - candidate {i} of {len(ids)}",
+             {"current": i, "total": len(ids), "step": "profile"})
         try:
             profile360(cid, max_rounds=max_rounds)
             done.append(cid)

@@ -25,7 +25,7 @@
   label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 5px}
   textarea,input,select{width:100%;background:#0c0f15;border:1px solid var(--line);color:var(--ink);
     border-radius:9px;padding:10px 11px;font:inherit;outline:none}
-  textarea{min-height:84px;resize:vertical}
+  textarea{min-height:150px;resize:vertical}
   textarea:focus,input:focus,select:focus{border-color:var(--accent)}
   .row{display:flex;gap:10px}.row>*{flex:1}
   details.adv{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
@@ -36,8 +36,34 @@
   button.run{margin-top:16px;width:100%;background:linear-gradient(90deg,var(--accent),#7aa2ff);
     border:none;color:#06101f;font-weight:700;padding:12px;border-radius:10px;cursor:pointer;font-size:15px}
   button.run:disabled{opacity:.5;cursor:not-allowed}
-  .console{background:#0a0d12;border:1px solid var(--line);border-radius:12px;padding:14px;height:330px;
-    overflow:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  /* Phase stepper */
+  .stepper{display:flex;gap:8px;margin:4px 0 14px}
+  .step{flex:1;border-top:2px solid var(--line);padding-top:7px}
+  .step .sn{font-size:10px;color:var(--muted);letter-spacing:.04em}
+  .step .sl{font-size:12px;color:var(--muted);font-weight:600;line-height:1.25}
+  .step.active{border-top-color:var(--accent)} .step.active .sl{color:var(--ink)}
+  .step.done{border-top-color:var(--accent2)} .step.done .sl{color:var(--accent2)}
+  .step.done .sn::after{content:" ✓"}
+  .phasecap{color:#cdd3df;font-size:13.5px;margin:2px 0 10px;min-height:34px}
+  .progress{position:relative;height:8px;background:#0a0d12;border:1px solid var(--line);border-radius:6px;margin:2px 0 12px}
+  .pbar{height:100%;width:0;background:linear-gradient(90deg,#3a6df0,#5ad1a0);border-radius:6px;transition:width .35s ease}
+  .pct{position:absolute;right:2px;top:-17px;font-size:11px;color:var(--muted)}
+  /* Activity feed */
+  .feed{background:#0a0d12;border:1px solid var(--line);border-radius:12px;padding:8px 12px;
+    height:min(560px, calc(100vh - 320px));overflow:auto}
+  .fdot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--muted)}
+  .fdot.understand,.fdot.discover{background:#5ad1a0}.fdot.vet{background:#f0c75a}
+  .fdot.profile{background:#b794ff}.fdot.finalize{background:#5b8cff}.fdot.ok{background:#42d6a4}.fdot.bad{background:#e0606a}
+  /* non-linear groups: big step header + indented substeps */
+  .group{margin:2px 0 14px}
+  .ghead{display:flex;gap:9px;align-items:center;font-weight:700;color:#fff;font-size:13.5px}
+  .gstep{color:var(--muted);font-weight:600;font-size:10.5px;letter-spacing:.04em;margin-right:2px}
+  .gsub{margin:6px 0 0 4px;border-left:2px solid var(--line);padding-left:14px}
+  .bullet{position:relative;color:#cdd3df;font-size:12.5px;padding:4px 0;display:flex;gap:10px;justify-content:space-between}
+  .bullet::before{content:"";position:absolute;left:-18px;top:50%;transform:translateY(-50%);
+    width:7px;height:7px;border-radius:50%;background:#5b6478;box-shadow:0 0 0 3px #0a0d12}
+  .bullet .btext{flex:1}
+  .bullet .bt{color:#5b6478;font-size:10px;flex:none;white-space:nowrap}
   .ev{display:flex;gap:9px;padding:3px 0;border-bottom:1px dashed #161b25}
   .ev .badge{flex:none;font-size:10px;padding:1px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em;height:fit-content}
   .b-stage{background:#23314f;color:#bcd0ff}.b-discover{background:#1f3a30;color:#8ff0c8}
@@ -51,6 +77,11 @@
   .dot.live{background:var(--accent2);box-shadow:0 0 0 0 rgba(66,214,164,.6);animation:p 1.4s infinite}
   @keyframes p{0%{box-shadow:0 0 0 0 rgba(66,214,164,.5)}70%{box-shadow:0 0 0 8px rgba(66,214,164,0)}100%{box-shadow:0 0 0 0 rgba(66,214,164,0)}}
   h2.section{font-size:16px;margin:26px 0 12px;letter-spacing:-.2px}
+  .reshead{display:flex;align-items:center;justify-content:space-between;margin:26px 0 12px}
+  .dlbtn{background:var(--accent2);color:#06101f;font-weight:700;font-size:13px;padding:8px 14px;border-radius:9px;text-decoration:none}
+  .dlbtn:hover{filter:brightness(1.07)}
+  .explore-summary{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:14px;color:#cdd3df;font-size:13px}
+  .explore-summary b{color:#fff}
   .cand{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
   .chead{display:flex;gap:14px;align-items:flex-start}
   .rank{font-size:20px;font-weight:800;color:var(--accent);min-width:36px}
@@ -96,32 +127,27 @@
 
       <label>Location parameters</label>
       <input id="location" placeholder="e.g. India — Bengaluru, Hyderabad, Delhi NCR" />
+      <label>Location preference</label>
+      <select id="geo_strict">
+        <option value="strict">Only this location</option>
+        <option value="flex">Open to strong candidates elsewhere</option>
+      </select>
 
-      <div class="row">
-        <div>
-          <label>Role (optional)</label>
-          <input id="role" placeholder="AI / ML Engineer" />
-        </div>
-        <div>
-          <label>Model</label>
-          <input id="model" />
-        </div>
-      </div>
+      <label>Role (optional)</label>
+      <input id="role" placeholder="AI / ML Engineer" />
+      <div class="legend" id="modelNote" style="margin-top:8px"></div>
 
       <details class="adv">
         <summary>Advanced parameters (defaults pre-filled)</summary>
         <div class="row">
-          <div><label>Top candidates (360)</label><input id="top" type="number" value="6" min="1" max="25"/></div>
+          <div><label>Candidates to profile &amp; score</label><input id="top" type="number" value="10" min="1" max="30"/></div>
           <div><label>Research depth</label><input id="max_rounds" type="number" value="3" min="1" max="6"/></div>
         </div>
         <div class="row">
-          <div><label>Users / geo query</label><input id="max_per_query" type="number" value="2" min="1" max="10"/></div>
-          <div><label>Limit areas (0=all)</label><input id="limit_areas" type="number" value="2" min="0" max="20"/></div>
+          <div><label>Users / geo query</label><input id="max_per_query" type="number" value="6" min="1" max="20"/></div>
+          <div><label>Limit areas (0=all)</label><input id="limit_areas" type="number" value="0" min="0" max="20"/></div>
         </div>
-        <div class="row">
-          <div><label>Max pool to score</label><input id="max_pool" type="number" value="30" min="5" max="120"/></div>
-          <div><label>&nbsp;</label><span class="legend">Caps the expensive scoring to the most promising slice.</span></div>
-        </div>
+        <div class="legend">The most promising candidates are deep-profiled first, then each is scored on its full 360° profile.</div>
         <label>Sources</label>
         <div class="toggles">
           <span class="toggle"><input type="checkbox" id="auto_sources" checked/> <b>Let the agent decide (recommended)</b></span>
@@ -146,10 +172,16 @@
     <!-- RIGHT: activity + results -->
     <div>
       <div class="card">
-        <div class="statusbar"><span class="dot" id="dot"></span><span id="status">Idle — enter a brief and run.</span></div>
-        <div class="console" id="console"></div>
+        <div class="statusbar"><span class="dot" id="dot"></span><span id="status">Ready — describe a candidate and run.</span></div>
+        <div class="stepper" id="stepper"></div>
+        <div class="phasecap" id="phaseCap">The agent will walk through each step below and explain what it's doing, so you can see exactly how every candidate was found and scored.</div>
+        <div class="progress" id="progressWrap" style="display:none"><div class="pbar" id="progressBar"></div><span class="pct" id="progressTxt"></span></div>
+        <div class="feed" id="console"></div>
       </div>
-      <h2 class="section" id="resultsHead" style="display:none">Ranked candidates</h2>
+      <div id="resultsHead" class="reshead" style="display:none">
+        <h2 class="section" style="margin:0">Ranked candidates</h2>
+        <a id="dlReport" class="dlbtn" href="#" target="_blank">Download PDF report</a>
+      </div>
       <div id="results"></div>
     </div>
   </div>
@@ -162,7 +194,7 @@ let es = null;
 async function loadConfig(){
   try{
     const c = await (await fetch('/api/config')).json();
-    $('model').value = c.model || '';
+    $('modelNote').textContent = 'Model: ' + (c.model || 'default') + ' (fixed)';
     if(c.default_description && !$('description').value) $('description').placeholder = c.default_description;
     if(c.default_country) $('location').placeholder = `${c.default_country} — ${(c.default_areas||[]).slice(0,4).join(', ')}`;
     $('legend').textContent = `Scored on ${c.metrics.length} metrics across 5 pillars (engineering craft, AI specialization, output & momentum, knowledge & communication, fit).`;
@@ -170,19 +202,67 @@ async function loadConfig(){
 }
 loadConfig();
 
-function badge(stage){
-  const known=['stage','discover','score','360','intake','plan','error','success','setup','warn'];
-  const s = known.includes(stage)?stage:'info';
-  return `<span class="badge b-${s}">${stage}</span>`;
+const PHASES=[
+  {key:'understand',label:'Understand brief',cap:"Reading your description and turning it into a precise search plan — geography, skills, which sources to use, and what to score."},
+  {key:'discover',label:'Discover people',cap:"Searching public signals for matching people — GitHub by city & language, Codeforces, Hugging Face, and more."},
+  {key:'profile',label:'360° profiles',cap:"Researching the most promising candidates everywhere — LinkedIn, GitHub, Kaggle, papers, talks — to build a complete picture and find contact details."},
+  {key:'vet',label:'Score on full profile',cap:"With the complete 360° picture in hand, confirming each is a real human builder and scoring them on a 12-metric rubric with evidence."},
+  {key:'finalize',label:'Rank & finish',cap:"Ranking the fully-evaluated candidates and preparing your shortlist with clear reasons to choose each person."},
+];
+let phaseIdx=-1;
+function renderStepper(){
+  $('stepper').innerHTML=PHASES.map((p,i)=>{
+    const cls=i<phaseIdx?'done':(i===phaseIdx?'active':'');
+    return `<div class="step ${cls}"><div class="sn">STEP ${i+1}</div><div class="sl">${p.label}</div></div>`;
+  }).join('');
 }
-function logEvent(evt){
+function phaseFromEvent(evt){
+  const s=evt.stage;
+  if(s==='setup'||s==='intake'||s==='plan') return 0;
+  if(s==='discover') return 1;
+  if(s==='360') return 2;
+  if(s==='score') return 3;
+  if(s==='done') return 4;
+  if(s==='stage'){
+    const m=(evt.message||'').toLowerCase();
+    if(m.includes('understand')) return 0;
+    if(m.includes('discover')) return 1;
+    if(m.includes('compil')||m.includes('final')) return 4;
+    if(m.includes('360')) return 2;
+    if(m.includes('scor')) return 3;
+  }
+  return phaseIdx<0?0:phaseIdx;
+}
+let curGroupPhase=-1, curGroupBody=null;
+function startGroup(idx){
   const c=$('console');
-  const time=new Date((evt.ts||Date.now()/1000)*1000).toLocaleTimeString();
-  const div=document.createElement('div');
-  div.className='ev';
-  div.innerHTML=`<span class="t">${time}</span>${badge(evt.stage||'info')}<span class="msg">${(evt.message||'').replace(/</g,'&lt;')}</span>`;
-  c.appendChild(div); c.scrollTop=c.scrollHeight;
+  const g=document.createElement('div'); g.className='group';
+  g.innerHTML=`<div class="ghead"><span class="fdot ${PHASES[idx].key}"></span>`+
+    `<span class="gstep">STEP ${idx+1}</span>${PHASES[idx].label}</div><div class="gsub"></div>`;
+  c.appendChild(g); curGroupBody=g.querySelector('.gsub'); curGroupPhase=idx;
+  c.scrollTop=c.scrollHeight;
 }
+function addBullet(evt){
+  if(!curGroupBody) startGroup(Math.max(0,phaseIdx));
+  const t=new Date((evt.ts||Date.now()/1000)*1000).toLocaleTimeString();
+  const b=document.createElement('div'); b.className='bullet';
+  b.innerHTML=`<span class="btext">${(evt.message||'').replace(/</g,'&lt;')}</span><span class="bt">${t}</span>`;
+  curGroupBody.appendChild(b); $('console').scrollTop=$('console').scrollHeight;
+}
+function handleEvent(evt){
+  const idx=phaseFromEvent(evt);
+  if(idx>phaseIdx){ phaseIdx=idx; renderStepper(); $('phaseCap').textContent=PHASES[phaseIdx].cap; }
+  const d=evt.data||{};
+  if(d.total){
+    $('progressWrap').style.display='block';
+    $('progressBar').style.width=Math.round((d.current/d.total)*100)+'%';
+    $('progressTxt').textContent=`${d.current} / ${d.total}`;
+  }
+  // open a new big-step group when the phase advances; stage events just define the step
+  if(idx!==curGroupPhase) startGroup(idx);
+  if(evt.stage!=='stage') addBullet(evt);
+}
+renderStepper();
 
 function meter(label,score,conf,evi){
   const pct=Math.max(0,Math.min(100,Math.round((score||0)*100)));
@@ -198,6 +278,7 @@ function renderCandidate(x){
   const rec=x.recommendation||'—'; const rc=RECCOLOR[rec]||'#5b6478';
   const pillars=(x.pillars||[]).map(p=>meter(p.name,p.score)).join('');
   const metrics=(x.metrics||[]).map(m=>meter(m.metric,m.score,m.confidence,m.evidence)).join('');
+  const achv=(x.key_achievements&&x.key_achievements.length?x.key_achievements:(x.notable_work||[])).slice(0,6).map(t=>`<li>${t}</li>`).join('')||'<li class="muted">—</li>';
   const notable=(x.notable_work||[]).slice(0,8).map(t=>`<li>${t}</li>`).join('')||'<li class="muted">—</li>';
   const hooks=(x.highlights||[]).slice(0,8).map(t=>`<li>${t}</li>`).join('')||'<li class="muted">—</li>';
   const tech=(x.tech_stack||[]).slice(0,18).map(t=>`<span class="tag">${t}</span>`).join('');
@@ -223,7 +304,7 @@ function renderCandidate(x){
     <div class="cols">
       <div><h4>Pillars</h4>${pillars||'<span class="muted">—</span>'}
         <details class="metrics"><summary>All 12 scoring metrics + evidence</summary>${metrics}</details></div>
-      <div><h4>Notable work</h4><ul>${notable}</ul><h4>Outreach hooks</h4><ul>${hooks}</ul><div>${tech}</div>${redflags}</div>
+      <div><h4>Key achievements</h4><ul>${achv}</ul><h4>Outreach hooks</h4><ul>${hooks}</ul><div>${tech}</div>${redflags}</div>
     </div>
     <div class="footrow"><div><h4>Profiles</h4>${idents||'<span class="muted">—</span>'}</div><div class="muted small">${x.sources_count} sources</div></div>
     ${links?`<div><h4>Published links</h4>${links}</div>`:''}
@@ -235,19 +316,31 @@ async function showResults(jobId){
   const r=await (await fetch('/api/results/'+jobId)).json();
   const res=(r.results&&r.results.candidates)||[];
   if(!res.length) return;
-  $('resultsHead').style.display='block';
-  $('results').innerHTML=res.map(renderCandidate).join('');
+  // exploration summary across all candidates
+  const totalSources=res.reduce((a,c)=>a+(c.sources_count||0),0);
+  const plats=new Set(); let withContact=0; let links=0;
+  res.forEach(c=>{ (c.identities||[]).forEach(i=>plats.add(i.platform));
+    if((c.contacts||[]).length) withContact++;
+    Object.values(c.links_inventory||{}).forEach(arr=>links+=(arr||[]).length); });
+  const summary=`<div class="explore-summary">Explored <b>${totalSources}</b> public sources across <b>${plats.size}</b> platforms `+
+    `(${[...plats].join(', ')||'—'}) and surfaced <b>${links}</b> published links. `+
+    `Found contact details for <b>${withContact}</b> of <b>${res.length}</b> candidates.</div>`;
+  $('resultsHead').style.display='flex';
+  $('dlReport').href='/api/report/'+jobId;
+  $('results').innerHTML=summary+res.map(renderCandidate).join('');
 }
 
 $('runBtn').addEventListener('click', async ()=>{
   if(es){es.close();}
   $('console').innerHTML=''; $('results').innerHTML=''; $('resultsHead').style.display='none';
+  phaseIdx=-1; curGroupPhase=-1; curGroupBody=null; renderStepper(); $('progressWrap').style.display='none';
+  $('phaseCap').textContent='Starting…';
   $('runBtn').disabled=true; $('dot').className='dot live'; $('status').textContent='Running…';
   const payload={
     description:$('description').value, location:$('location').value, role:$('role').value,
-    model:$('model').value, top:+$('top').value, max_rounds:+$('max_rounds').value,
+    top:+$('top').value, max_rounds:+$('max_rounds').value,
     max_per_query:+$('max_per_query').value, limit_areas:+$('limit_areas').value, fresh:$('fresh').checked,
-    max_pool:+$('max_pool').value, auto_sources:$('auto_sources').checked,
+    geo_strict:$('geo_strict').value==='strict', auto_sources:$('auto_sources').checked,
     sources:{github_geo:$('s_geo').checked, codeforces:$('s_cf').checked, repos:$('s_repos').checked,
              huggingface:$('s_hf').checked, publications:$('s_pub').checked}
   };
@@ -258,12 +351,14 @@ $('runBtn').addEventListener('click', async ()=>{
     if(evt.stage==='connected') return;
     if(evt.stage==='end'){
       es.close(); $('runBtn').disabled=false; $('dot').className='dot';
-      $('status').textContent = evt.status==='error'?'Finished with an error (see log).':'Done.';
+      $('progressWrap').style.display='none';
+      if(evt.status!=='error'){ phaseIdx=PHASES.length; renderStepper(); }
+      $('status').textContent = evt.status==='error'?'Finished with an error (see activity).':'Done — see the ranked candidates below.';
       if(evt.has_results) await showResults(job_id);
       return;
     }
-    if(evt.stage==='stage') $('status').textContent=evt.message;
-    logEvent(evt);
+    if(evt.stage==='stage') $('status').textContent=evt.message.replace(/^Stage [0-9.]+ - /,'');
+    handleEvent(evt);
   };
   es.onerror=()=>{ $('status').textContent='Stream closed.'; $('dot').className='dot'; $('runBtn').disabled=false; };
 });

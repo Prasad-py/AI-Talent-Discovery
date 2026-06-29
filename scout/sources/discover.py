@@ -18,7 +18,7 @@ from rich.console import Console
 from ..config import load_icp
 from ..db import add_identity, add_signal, session_scope, upsert_candidate_by_github
 from ..geo import area_of, is_in_country
-from ..models import Contact, Platform, Stage
+from ..models import Candidate, Contact, Platform, Stage
 from ..progress import emit
 from . import github, openrank
 
@@ -106,7 +106,45 @@ def _ingest_github_user(login: str, source_meta: dict | None = None) -> int | No
                        weight=1.0 if meta.get("country") else 0.0,
                        raw={"location": location, "region": meta.get("region"), "country": meta.get("country")})
         cand.stage = Stage.discovered
+    where = (source_meta or {}).get("geo_area") or (source_meta or {}).get("seed_repo") or location or ""
+    emit("discover", f"  + {profile.get('name') or login} (@{login}) - {where}")
     return cid
+
+
+def _enrich_one_repos(cid: int) -> bool:
+    with session_scope() as session:
+        cand = session.get(Candidate, cid)
+        login = cand.primary_github_login if cand else None
+        already = bool((cand.meta or {}).get("top_repos")) if cand else False
+    if not login or already:
+        return False
+    try:
+        repos = github.top_repos(login, limit=10)
+    except Exception:  # noqa: BLE001  (incl. rate limit; skip this one)
+        return False
+    if not repos:
+        return False
+    compact = [{k: r[k] for k in ("name", "description", "language", "stars", "topics")} for r in repos[:8]]
+    names = ", ".join(f"{r['name']}({r['stars']}\u2605)" for r in repos[:6])
+    with session_scope() as session:
+        cand = session.get(Candidate, cid)
+        cand.meta = {**(cand.meta or {}), "top_repos": compact}
+        add_signal(session, cid, source="github_repos", kind="repos",
+                   title=f"Top repos: {names}", weight=float(sum(r["stars"] for r in repos)),
+                   raw={"repos": repos})
+    return True
+
+
+def enrich_top_repos(candidate_ids: list[int], workers: int = 6) -> int:
+    """
+    Read the top repos (names/descriptions/topics/languages/stars) for a set of
+    candidates, in parallel. Stored on each candidate (meta + a 'github_repos' signal) so
+    selection, 360, and scoring can judge what each person actually builds.
+    """
+    from ..parallel import run_parallel
+
+    results = run_parallel(_enrich_one_repos, candidate_ids, workers=workers)
+    return sum(1 for r in results if r)
 
 
 # --------------------------------------------------------------------------
@@ -122,15 +160,13 @@ def run_discovery(limit_repos: int | None = None, max_per_repo: int | None = Non
     if limit_repos:
         ranked = ranked[:limit_repos]
 
-    console.print("[bold]Target repos ranked by OpenRank:[/bold]")
-    for full, score in ranked:
-        console.print(f"  {full:40s} OpenRank={score:.2f}")
+    emit("discover", "Target repos ranked by OpenRank: " + ", ".join(f"{f} ({s:.0f})" for f, s in ranked))
 
     seen_logins: set[str] = set()
     total = 0
     for full, repo_or in ranked:
         owner, repo = full.split("/", 1)
-        console.print(f"\n[cyan]Mining[/cyan] {full} ...")
+        emit("discover", f"Mining contributors of {full} (OpenRank {repo_or:.0f})...")
         try:
             contributors = github.get_contributors(owner, repo, max_contrib)
         except github.GitHubRateLimit as e:
@@ -201,24 +237,24 @@ def run_geo_discovery(
             q = f'location:"{area}" language:{lang} followers:>={min_followers}'
             if open_to_work_only and bio_terms:
                 q += f' "{bio_terms[0]}" in:bio'
-            console.print(f"[cyan]Geo search[/cyan] {q}")
             emit("discover", f"Fetching GitHub developers: {area} / {lang}")
             try:
                 logins = github.search_users(q, max_users=per_query)
             except github.GitHubRateLimit as e:
                 console.print(f"[red]{e}[/red] Stopping geo discovery; partial results kept.")
                 return total
-            for login in logins:
-                if login in seen:
-                    continue
-                seen.add(login)
+            from ..parallel import run_parallel
+
+            fresh = [lg for lg in logins if lg not in seen]
+            seen.update(fresh)
+
+            def _ingest(login: str, _meta={"geo_query": q, "geo_area": area}):  # noqa: B006
                 try:
-                    cid = _ingest_github_user(login, source_meta={"geo_query": q, "geo_area": area})
-                    if cid:
-                        total += 1
-                except github.GitHubRateLimit as e:
-                    console.print(f"[red]{e}[/red] Stopping geo discovery; partial results kept.")
-                    return total
+                    return _ingest_github_user(login, source_meta=dict(_meta))
+                except github.GitHubRateLimit:
+                    return None
+
+            total += sum(1 for r in run_parallel(_ingest, fresh, workers=5) if r)
     console.print(f"Geo discovery ingested {total} candidates across {len(areas)} area(s).")
     emit("discover", f"GitHub geo discovery found {total} candidates.", {"count": total})
     return total

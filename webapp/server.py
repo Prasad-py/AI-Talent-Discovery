@@ -98,5 +98,22 @@ def results(job_id: str) -> JSONResponse:
     return JSONResponse({"status": progress.get_status(job_id), "results": progress.get_result(job_id)})
 
 
+@app.get("/api/report/{job_id}")
+def report(job_id: str):
+    """Serve the run's HTML report as a download (builds on demand if missing)."""
+    res = progress.get_result(job_id) or {}
+    path = res.get("report_path")
+    if not path or not Path(path).exists():
+        from scout.report import build_report
+
+        path = build_report(top=25)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="talent_scout_report.pdf",
+        headers={"Content-Disposition": 'attachment; filename="talent_scout_report.pdf"'},
+    )
+
+
 if STATIC.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")

@@ -30,7 +30,12 @@ PLAN_SYSTEM = (
     "raw algorithmic talent (Codeforces only resolves country, best for that case).\n"
     "  - huggingface: true if the brief is about AI/ML model builders.\n"
     "  - publications: true if the brief is research-oriented (papers, PhD, novel methods).\n"
-    "  - repos: true if contributing to specific well-known projects matters (then fill target_repos).\n\n"
+    "  - repos: true for almost any builder/engineering role - then fill target_repos with 4-8 "
+    "REAL, well-known repositories in the role's exact domain so we can find contributors to "
+    "serious projects (e.g. for LLM/agents/applied-AI: huggingface/transformers, "
+    "langchain-ai/langchain, vllm-project/vllm, run-llama/llama_index, microsoft/autogen, "
+    "ollama/ollama, langgenius/dify). Location filtering is applied downstream, so listing "
+    "globally-popular repos is correct.\n\n"
     "Pick which evaluation metrics matter most for this role (emphasis). Return JSON ONLY:\n"
     "{\n"
     '  "role": "concise role title",\n'

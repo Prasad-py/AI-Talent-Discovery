@@ -166,14 +166,16 @@ def deep_run_cmd(
     publications: bool = typer.Option(False, help="Include Semantic Scholar paper authors in Stage 1"),
     limit_areas: int = typer.Option(0, help="Limit India areas (0 = all)"),
     max_per_query: int = typer.Option(0, help="Cap users per geo query (0 = icp.yaml)"),
+    geo_strict: bool = typer.Option(True, help="Only profile candidates in the target location"),
 ) -> None:
-    """Full two-stage deep pipeline: discover (breadth) -> score -> 360 (depth) -> rescore -> report."""
+    """Full two-stage deep pipeline: discover (breadth) -> select -> 360 (depth) -> score -> report."""
     from .pipeline import run_deep
 
     init_db()
     run_deep(
         top=top, max_rounds=max_rounds, repos=repos, huggingface=huggingface,
         publications=publications, limit_areas=limit_areas or None, max_per_query=max_per_query or None,
+        geo_strict=geo_strict,
     )
     console.print("[green]Deep run complete.[/green]")
 

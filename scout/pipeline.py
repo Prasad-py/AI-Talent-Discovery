@@ -27,12 +27,17 @@ def run_deep(
     publications: bool = False,
     limit_areas: int | None = None,
     max_per_query: int | None = None,
+    geo_strict: bool = True,
 ) -> dict:
-    from .enrich.profile360 import profile360_top
+    from .authenticity import classifier as authenticity
+    from .config import load_icp
+    from .enrich.profile360 import profile360
+    from .parallel import run_parallel
     from .report import build_report
-    from .scoring.scorecard import score_all, score_ids
+    from .scoring.scorecard import prerank_ids, score_candidate
+    from .scoring.triage import role_relevance
     from .sources.codeforces import ingest_india
-    from .sources.discover import run_discovery, run_geo_discovery
+    from .sources.discover import enrich_top_repos, run_discovery, run_geo_discovery
 
     init_db()
     summary: dict = {}
@@ -51,15 +56,20 @@ def run_deep(
         from .sources.scholar import ingest_topic_authors
         summary["publications"] = ingest_topic_authors()
 
-    console.rule("[bold]Stage 1.5 - Score the pool")
-    summary["scored"] = score_all()
+    console.rule(f"[bold]Stage 2 - Select (role-relevance) + 360 deep view on top {top}")
+    icp = load_icp()
+    triage_n = max(top * 3, 30)
+    narrowed = prerank_ids(triage_n, in_geo_only=geo_strict) or prerank_ids(triage_n, in_geo_only=False)
+    enrich_top_repos(narrowed)
+    ranked = role_relevance(narrowed, icp.get("role"), icp.get("description"), [])
+    sel_ids = [cid for cid, _rel in ranked[:top]] or narrowed[:top]
+    run_parallel(lambda cid: profile360(cid, max_rounds=max_rounds), sel_ids, workers=5)
+    summary["deep_dived"] = len(sel_ids)
 
-    console.rule(f"[bold]Stage 2 - 360 deep view on top {top}")
-    dived = profile360_top(top=top, max_rounds=max_rounds)
-    summary["deep_dived"] = len(dived)
-
-    console.rule("[bold]Stage 2.5 - Re-score with full 360 evidence")
-    summary["rescored"] = score_ids(dived)
+    console.rule("[bold]Stage 3 - Score each candidate on the full 360 profile")
+    run_parallel(authenticity.assess, sel_ids, workers=6)
+    run_parallel(score_candidate, sel_ids, workers=6)
+    summary["scored"] = len(sel_ids)
 
     console.rule("[bold]Report")
     summary["report"] = build_report(top=max(top, 25))

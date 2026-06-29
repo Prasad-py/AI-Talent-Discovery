@@ -14,42 +14,8 @@ from . import progress
 from .config import clear_overrides, set_model, set_overrides
 from .db import get_engine, init_db, session_scope
 from .intake import build_plan, plan_to_overrides
-from .models import Candidate, Contact, Dossier, Identity, Scorecard, Signal
+from .models import Candidate, Contact, Dossier, Identity, Scorecard
 from .scoring.scorecard import METRICS, PILLAR_ORDER
-
-
-def _prerank_ids(limit: int) -> list[int]:
-    """
-    Cheap, LLM-free pre-rank so we only spend the expensive scorecard on the most
-    promising slice of the pool (keeps runs responsive when sources are broad).
-    """
-    from sqlmodel import select
-
-    scored: list[tuple[float, int]] = []
-    with session_scope() as session:
-        cands = session.exec(select(Candidate)).all()
-        for c in cands:
-            sigs = session.exec(select(Signal).where(Signal.candidate_id == c.id)).all()
-            h = 0.0
-            for s in sigs:
-                w = float(s.weight or 0.0)
-                if s.source == "openrank":
-                    h += min(w, 50) / 50 * 2.0
-                elif s.source == "github_pr":
-                    h += min(w, 100) / 100 * 2.0
-                elif s.source == "codeforces" and s.kind == "rating":
-                    h += min(w, 3500) / 3500 * 2.0
-                elif s.source == "huggingface":
-                    h += min(w, 1_000_000) / 1_000_000 * 2.0
-                elif s.source == "github_graphql":
-                    h += min(w, 200) / 200 * 1.0
-                elif s.source == "github_activity":
-                    h += min(w, 50) / 50 * 0.5
-            if (c.meta or {}).get("country"):
-                h += 0.5  # in target geography
-            scored.append((h, c.id))
-    scored.sort(reverse=True)
-    return [cid for _h, cid in scored[:limit]]
 
 
 def reset_db() -> None:
@@ -110,6 +76,7 @@ def build_results(top: int = 10) -> dict:
                 "pillars": [{"name": p, "score": round(float((sc.pillars or {}).get(p, 0.0)), 2)} for p in PILLAR_ORDER] if sc else [],
                 "metrics": metrics_out,
                 "summary": dossier.summary if dossier else "",
+                "key_achievements": st.get("key_achievements") or [],
                 "notable_work": st.get("notable_work") or [],
                 "tech_stack": st.get("tech_stack") or [],
                 "highlights": st.get("highlights") or [],
@@ -129,7 +96,7 @@ def run_job(job_id: str, params: dict) -> None:
     """Entry point for the background worker thread."""
     progress.bind(job_id)
     try:
-        top = int(params.get("top", 8))
+        top = int(params.get("top", 10))
         max_rounds = int(params.get("max_rounds", 3))
         user_sources = params.get("sources", {}) or {}
         auto_sources = params.get("auto_sources", True)
@@ -189,30 +156,70 @@ def run_job(job_id: str, params: dict) -> None:
             counts["publications"] = ingest_topic_authors()
         progress.emit("discover", f"Discovery complete: {sum(counts.values())} candidates.", {"counts": counts})
 
-        # Stage 1.5: rank the pool (cap the expensive scorecard to the most promising slice).
-        max_pool = int(params.get("max_pool", 30))
         from .authenticity import classifier as authenticity
-        from .scoring.scorecard import score_ids
+        from .enrich.profile360 import profile360
+        from .parallel import run_parallel
+        from .scoring.scorecard import prerank_ids, score_candidate
+        from .scoring.triage import role_relevance
+        from .sources.discover import enrich_top_repos
 
-        pool_ids = _prerank_ids(max_pool)
-        progress.emit("stage", f"Stage 1.5 - Scoring the top {len(pool_ids)} of the pool", level="stage")
-        progress.emit("score", f"Pre-ranked the pool; assessing authenticity for {len(pool_ids)} candidates...")
-        for cid in pool_ids:
-            authenticity.assess(cid)
-        score_ids(pool_ids)
+        geo_strict = params.get("geo_strict", True)
+        keywords = plan.get("keywords") or []
 
-        # Stage 2: 360 deep view on the best.
-        progress.emit("stage", f"Stage 2 - Building 360 profiles for the top {top}", level="stage")
-        from .enrich.profile360 import profile360_top
-        dived = profile360_top(top=top, max_rounds=max_rounds)
+        # Stage A - cheap heuristic narrow to a role-relevance triage shortlist.
+        triage_n = max(top * 3, 30)
+        narrowed = prerank_ids(triage_n, in_geo_only=geo_strict,
+                               keywords=keywords + ([plan.get("role")] if plan.get("role") else []))
+        if geo_strict and not narrowed:
+            progress.emit("discover", "No in-geo candidates - widening to strong candidates elsewhere.", level="warn")
+            narrowed = prerank_ids(triage_n, in_geo_only=False, keywords=keywords)
 
-        progress.emit("stage", "Stage 2.5 - Final scoring with full 360 evidence", level="stage")
-        score_ids(dived)
+        # Stage B - read their actual work (top repos) to judge fit.
+        progress.emit("discover", f"Reading the top repositories of {len(narrowed)} candidates to judge role fit...")
+        enrich_top_repos(narrowed)
+
+        # Stage C - LLM role-relevance triage: keep the people whose work matches the role.
+        progress.emit("discover", "Ranking candidates by how well their work matches the role...")
+        ranked = role_relevance(narrowed, plan.get("role"), params.get("description"), keywords)
+        sel_ids = [cid for cid, _rel in ranked[:top]] or narrowed[:top]
+        if ranked:
+            progress.emit("discover", f"Top role-relevance scores: {', '.join(f'{r:.2f}' for _c, r in ranked[:top])}")
+
+        mode = "in the target location only" if geo_strict else "preferring the target location"
+        progress.emit("stage", f"Stage 2 - Building 360 profiles for the top {len(sel_ids)}", level="stage")
+        progress.emit("360", f"Selected the {len(sel_ids)} most role-relevant people ({mode}) to profile in depth.")
+        def _do_360(cid):
+            try:
+                profile360(cid, max_rounds=max_rounds)
+            except Exception as e:  # noqa: BLE001
+                progress.emit("360", f"Couldn't fully profile one candidate ({e}); continuing.", level="warn")
+
+        run_parallel(_do_360, sel_ids, workers=5,
+                     on_done=lambda d, t: progress.emit("360", f"Completed {d} of {t} 360-degree profiles",
+                                                        {"current": d, "total": t}))
+
+        # Score ONCE, on the complete 360 evidence (highest-quality, highest-confidence).
+        progress.emit("stage", "Stage 3 - Scoring each candidate on their full 360 profile", level="stage")
+        progress.emit("score", "Verifying real-human authenticity for each candidate (in parallel)...")
+        run_parallel(authenticity.assess, sel_ids, workers=6,
+                     on_done=lambda d, t: progress.emit("score", f"Authenticity verified {d} of {t}",
+                                                        {"current": d, "total": t}))
+        progress.emit("score", "Scoring each candidate on the 12-metric rubric with full evidence (in parallel)...")
+        run_parallel(score_candidate, sel_ids, workers=6,
+                     on_done=lambda d, t: progress.emit("score", f"Scored {d} of {t}", {"current": d, "total": t}))
 
         progress.emit("stage", "Compiling results", level="stage")
         results = build_results(top=max(top, 10))
+
+        progress.emit("finalize", "Generating your downloadable report...")
+        from .report import build_report
+        try:
+            results["report_path"] = build_report(top=max(top, 25))
+        except Exception as e:  # noqa: BLE001
+            progress.emit("finalize", f"Report generation issue: {e}", level="warn")
+
         progress.set_result(job_id, results)
-        progress.emit("done", f"Done. {len(results['candidates'])} ranked candidates ready.",
+        progress.emit("done", f"Done. {len(results['candidates'])} ranked candidates ready - report available to download.",
                       {"count": len(results["candidates"])}, level="success")
     except Exception as e:  # noqa: BLE001
         import traceback
