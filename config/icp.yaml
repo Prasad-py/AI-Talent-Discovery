@@ -1,0 +1,117 @@
+# Ideal Candidate Profile (ICP) + search targets + scoring rubric.
+# Edit this file to retarget the pipeline. Everything downstream reads from here.
+
+role: "AI / ML Engineer (Sovereign Intelligence team)"
+
+# Plain-English description of who we want. Fed to the LLM scorer verbatim.
+description: >
+  Young, sharp, hungry engineers who deeply care about craft and are ahead of the
+  curve. They ship real things, try every new model/harness the day it drops, and
+  contribute substantively to serious AI/ML open source. We especially want strong
+  builders who are NOT yet widely discovered. We do not want influencers, recruiters,
+  resume-keyword optimizers, or bot/AI-generated accounts.
+
+# 4-6 measurable competencies the scorer reasons about.
+competencies:
+  - name: craft
+    description: >
+      Depth and quality of engineering: merged PRs into serious repos, code reviews
+      performed, thoughtful PR/issue writing, authored widely-used tools/models,
+      strong OpenRank influence. (Stars/followers do NOT count.)
+  - name: hunger
+    description: >
+      Velocity and consistency of shipping: frequent recent commits, side projects,
+      sustained activity, finishing things.
+  - name: ahead_of_curve
+    description: >
+      Early, hands-on engagement with new models, harnesses, papers, and techniques.
+  - name: authenticity
+    description: >
+      A real human builder (not a bot, influencer, recruiter, or company account)
+      whose claimed expertise is backed by real artifacts.
+  - name: hireability
+    description: >
+      Can we realistically HIRE them now? High for hungry, early-career/student, indie
+      builders, open-to-work, reachable, and based in the target geography (India).
+      Low for already-arrived founders/CTOs/principal engineers, FAANG-anchored people,
+      or anyone clearly outside the target geography - impressive but unhireable = low.
+
+# Relative weights for the composite score (need not sum to 1; normalized at runtime).
+# Note: hireability is weighted heavily on purpose - we want people we can actually hire.
+weights:
+  craft: 0.30
+  hunger: 0.15
+  ahead_of_curve: 0.12
+  authenticity: 0.13
+  hireability: 0.30
+
+# Score thresholds (0-1).
+thresholds:
+  deep_dive: 0.55      # >= triggers recursive deep research + enrichment
+  shortlist: 0.70      # >= surfaced to humans as a shortlist
+  strong_signal: 0.85  # a single sub-score this high also triggers deep dive
+
+# GitHub repos to mine contributors from. These are RANKED by repo OpenRank at
+# runtime; we harvest contributors of the most "serious" ones first.
+target_repos:
+  - "vllm-project/vllm"
+  - "huggingface/transformers"
+  - "pytorch/pytorch"
+  - "langchain-ai/langchain"
+  - "ggml-org/llama.cpp"
+  - "ollama/ollama"
+  - "unslothai/unsloth"
+  - "sgl-project/sglang"
+
+# Geography: India-first, area-wise (the journey begins in India; best relocate later).
+geo:
+  country: India
+  areas:
+    - "Bengaluru"
+    - "Hyderabad"
+    - "Delhi"
+    - "Gurgaon"
+    - "Noida"
+    - "Pune"
+    - "Mumbai"
+    - "Chennai"
+    - "Kolkata"
+    - "Ahmedabad"
+    - "Jaipur"
+    - "India"            # catch-all for those who only list the country
+  require_in_country: true
+  open_to_work_bio: ["open to work", "looking for", "seeking opportunities", "open for"]
+
+# GitHub search filters for the crawls.
+github:
+  languages: ["Python", "C++", "Cuda", "Rust", "TypeScript"]
+  min_merged_prs: 2          # merged PRs into target repos over the lookback window
+  lookback_months: 24
+  max_contributors_per_repo: 60
+  min_followers_geo: 3       # floor for geo user-search (keeps noise down)
+  max_users_per_query: 30    # cap per (area x language) geo search
+
+# Codeforces (open database of often-young Indian competitive programmers).
+codeforces:
+  min_rating: 2000           # >= Candidate Master; raise to tighten to the very best
+  max_users: 12
+
+# X / Twitter discovery (xPool-style). Used to generate search queries.
+x:
+  topics:
+    - "LLM inference / serving"
+    - "fine-tuning and RLHF"
+    - "agents and tool use"
+    - "new model + harness releases"
+  first_person_markers: ["I built", "I shipped", "I'm building", "working on", "just trained"]
+  max_users_per_query: 40
+
+# Reddit (v1: discovery config only; commercial API contract needed to scale).
+reddit:
+  subreddits: ["LocalLLaMA", "MachineLearning", "LLMDevs", "StableDiffusion"]
+
+# Seed lists used to calibrate cold-start scoring (LLM pseudo-labeling).
+# Fill these with GitHub logins you already trust / reject. A handful each is enough.
+seeds:
+  known_good: []   # e.g. ["karpathy", "Tongjilibo"]
+  known_bad: []    # e.g. obvious influencer / bot / recruiter logins

@@ -1,0 +1,27 @@
+# Secrets - never commit
+.env
+*.env
+config/secrets.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Data / DB / caches / generated artifacts
+*.db
+*.sqlite
+*.sqlite3
+data/
+.cache/
+http_cache/
+reports/
+config/learned_weights.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

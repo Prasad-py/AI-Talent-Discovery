@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent Scout</title>
+<style>
+  :root{
+    --bg:#0d0f14; --panel:#151922; --panel2:#1b212c; --ink:#e8eaf0; --muted:#8b93a7;
+    --accent:#5b8cff; --accent2:#42d6a4; --line:#252c3a; --warn:#e0a23c; --bad:#e0606a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%, #1a2230 0%, var(--bg) 55%);
+    color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,sans-serif;}
+  a{color:#9fc1ff;text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 90px;}
+  header{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  header h1{font-size:24px;margin:0;letter-spacing:-.3px}
+  header .tag{color:var(--accent2);font-weight:600;font-size:13px;border:1px solid var(--line);
+    padding:2px 8px;border-radius:999px;background:#10151d}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:14px}
+  .grid{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}
+  @media(max-width:920px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 5px}
+  textarea,input,select{width:100%;background:#0c0f15;border:1px solid var(--line);color:var(--ink);
+    border-radius:9px;padding:10px 11px;font:inherit;outline:none}
+  textarea{min-height:84px;resize:vertical}
+  textarea:focus,input:focus,select:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+  details.adv{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  details.adv summary{cursor:pointer;color:var(--accent);font-size:13px}
+  .toggles{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink)}
+  .toggle input{width:auto}
+  button.run{margin-top:16px;width:100%;background:linear-gradient(90deg,var(--accent),#7aa2ff);
+    border:none;color:#06101f;font-weight:700;padding:12px;border-radius:10px;cursor:pointer;font-size:15px}
+  button.run:disabled{opacity:.5;cursor:not-allowed}
+  .console{background:#0a0d12;border:1px solid var(--line);border-radius:12px;padding:14px;height:330px;
+    overflow:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ev{display:flex;gap:9px;padding:3px 0;border-bottom:1px dashed #161b25}
+  .ev .badge{flex:none;font-size:10px;padding:1px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em;height:fit-content}
+  .b-stage{background:#23314f;color:#bcd0ff}.b-discover{background:#1f3a30;color:#8ff0c8}
+  .b-score{background:#3a2f1f;color:#f0d28f}.b-360{background:#2f234a;color:#cdb6ff}
+  .b-intake{background:#23314f;color:#bcd0ff}.b-plan{background:#23314f;color:#bcd0ff}.b-info{background:#1c222e;color:#9aa6bd}
+  .b-error{background:#4a2020;color:#ffb3b8}.b-success{background:#1f3a30;color:#8ff0c8}
+  .b-setup{background:#1c222e;color:#9aa6bd}.b-warn{background:#3a2f1f;color:#f0d28f}
+  .ev .msg{color:#d7dce6}.ev .t{color:#5b6478;flex:none}
+  .statusbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#3a4459}
+  .dot.live{background:var(--accent2);box-shadow:0 0 0 0 rgba(66,214,164,.6);animation:p 1.4s infinite}
+  @keyframes p{0%{box-shadow:0 0 0 0 rgba(66,214,164,.5)}70%{box-shadow:0 0 0 8px rgba(66,214,164,0)}100%{box-shadow:0 0 0 0 rgba(66,214,164,0)}}
+  h2.section{font-size:16px;margin:26px 0 12px;letter-spacing:-.2px}
+  .cand{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .chead{display:flex;gap:14px;align-items:flex-start}
+  .rank{font-size:20px;font-weight:800;color:var(--accent);min-width:36px}
+  .who h3{margin:0;font-size:18px}.who .hl{color:#cdd3df}.who .meta{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .sbox{margin-left:auto;text-align:right;min-width:120px}
+  .comp{font-size:28px;font-weight:800;line-height:1}
+  .rec{display:inline-block;color:#06101f;font-weight:700;padding:2px 10px;border-radius:999px;font-size:12px;margin-top:5px}
+  .muted{color:var(--muted)} .small{font-size:11px}
+  .summary{color:#cdd3df;margin:12px 0 4px;font-size:14px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+  h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 6px}
+  .meter{margin:6px 0}.mhead{display:flex;justify-content:space-between;font-size:12px}
+  .mlabel{text-transform:capitalize}.mval{color:var(--muted)}
+  .bar{height:7px;background:#0a0d12;border-radius:6px;overflow:hidden;margin-top:3px}
+  .fill{height:100%;background:linear-gradient(90deg,#3a6df0,#5ad1a0)}
+  .evi{color:var(--muted);font-size:11px;margin-top:2px}
+  ul{margin:4px 0;padding-left:18px}li{margin:2px 0}
+  .tag{display:inline-block;background:#0c0f15;border:1px solid var(--line);color:#bcc3d0;padding:2px 8px;border-radius:6px;font-size:12px;margin:2px}
+  .chip{display:inline-block;background:#0c0f15;border:1px solid var(--line);color:#9fc1ff;padding:3px 9px;border-radius:6px;font-size:12px;margin:3px}
+  .footrow{display:flex;gap:16px;justify-content:space-between;border-top:1px solid var(--line);margin-top:12px;padding-top:10px;flex-wrap:wrap}
+  .contact{background:#0c0f15;border:1px solid var(--line);padding:3px 9px;border-radius:6px;font-size:12px;margin-right:6px}
+  details.metrics summary{cursor:pointer;color:var(--accent);font-size:12.5px;margin-top:6px}
+  .legend{color:var(--muted);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Talent Scout</h1>
+    <span class="tag">agentic &middot; two-step sourcing</span>
+  </header>
+  <p class="sub">Describe <b>who</b> you want and <b>where</b>. An agent derives the search plan, then runs two steps &mdash;
+  <b>1) discover</b> public signals everywhere (GitHub, Codeforces, Hugging Face, papers&hellip;), then
+  <b>2) build a 360&deg; profile</b> of the best (LinkedIn, GitHub, Kaggle &amp; more) and score each on 12 metrics with evidence.
+  It adapts to whatever you ask &mdash; geography, sources, and rubric are all chosen from your brief.</p>
+
+  <div class="grid">
+    <!-- LEFT: form -->
+    <div class="card">
+      <label>Describe the candidate</label>
+      <textarea id="description" placeholder="e.g. Hungry, early-career AI/ML engineers who ship — strong with LLM inference, fine-tuning, or agents. Not arrived CTOs; people we can hire."></textarea>
+
+      <label>Location parameters</label>
+      <input id="location" placeholder="e.g. India — Bengaluru, Hyderabad, Delhi NCR" />
+
+      <div class="row">
+        <div>
+          <label>Role (optional)</label>
+          <input id="role" placeholder="AI / ML Engineer" />
+        </div>
+        <div>
+          <label>Model</label>
+          <input id="model" />
+        </div>
+      </div>
+
+      <details class="adv">
+        <summary>Advanced parameters (defaults pre-filled)</summary>
+        <div class="row">
+          <div><label>Top candidates (360)</label><input id="top" type="number" value="6" min="1" max="25"/></div>
+          <div><label>Research depth</label><input id="max_rounds" type="number" value="3" min="1" max="6"/></div>
+        </div>
+        <div class="row">
+          <div><label>Users / geo query</label><input id="max_per_query" type="number" value="2" min="1" max="10"/></div>
+          <div><label>Limit areas (0=all)</label><input id="limit_areas" type="number" value="2" min="0" max="20"/></div>
+        </div>
+        <div class="row">
+          <div><label>Max pool to score</label><input id="max_pool" type="number" value="30" min="5" max="120"/></div>
+          <div><label>&nbsp;</label><span class="legend">Caps the expensive scoring to the most promising slice.</span></div>
+        </div>
+        <label>Sources</label>
+        <div class="toggles">
+          <span class="toggle"><input type="checkbox" id="auto_sources" checked/> <b>Let the agent decide (recommended)</b></span>
+        </div>
+        <div class="legend">Or force-include specific sources (the agent unions these in):</div>
+        <div class="toggles">
+          <span class="toggle"><input type="checkbox" id="s_geo"/> GitHub (geo)</span>
+          <span class="toggle"><input type="checkbox" id="s_cf"/> Codeforces</span>
+          <span class="toggle"><input type="checkbox" id="s_repos"/> GitHub repos</span>
+          <span class="toggle"><input type="checkbox" id="s_hf"/> Hugging Face</span>
+          <span class="toggle"><input type="checkbox" id="s_pub"/> Publications</span>
+        </div>
+        <div class="toggles">
+          <span class="toggle"><input type="checkbox" id="fresh" checked/> Start fresh (clear previous pool)</span>
+        </div>
+      </details>
+
+      <button class="run" id="runBtn">Find candidates</button>
+      <p class="legend" id="legend"></p>
+    </div>
+
+    <!-- RIGHT: activity + results -->
+    <div>
+      <div class="card">
+        <div class="statusbar"><span class="dot" id="dot"></span><span id="status">Idle — enter a brief and run.</span></div>
+        <div class="console" id="console"></div>
+      </div>
+      <h2 class="section" id="resultsHead" style="display:none">Ranked candidates</h2>
+      <div id="results"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let es = null;
+
+async function loadConfig(){
+  try{
+    const c = await (await fetch('/api/config')).json();
+    $('model').value = c.model || '';
+    if(c.default_description && !$('description').value) $('description').placeholder = c.default_description;
+    if(c.default_country) $('location').placeholder = `${c.default_country} — ${(c.default_areas||[]).slice(0,4).join(', ')}`;
+    $('legend').textContent = `Scored on ${c.metrics.length} metrics across 5 pillars (engineering craft, AI specialization, output & momentum, knowledge & communication, fit).`;
+  }catch(e){}
+}
+loadConfig();
+
+function badge(stage){
+  const known=['stage','discover','score','360','intake','plan','error','success','setup','warn'];
+  const s = known.includes(stage)?stage:'info';
+  return `<span class="badge b-${s}">${stage}</span>`;
+}
+function logEvent(evt){
+  const c=$('console');
+  const time=new Date((evt.ts||Date.now()/1000)*1000).toLocaleTimeString();
+  const div=document.createElement('div');
+  div.className='ev';
+  div.innerHTML=`<span class="t">${time}</span>${badge(evt.stage||'info')}<span class="msg">${(evt.message||'').replace(/</g,'&lt;')}</span>`;
+  c.appendChild(div); c.scrollTop=c.scrollHeight;
+}
+
+function meter(label,score,conf,evi){
+  const pct=Math.max(0,Math.min(100,Math.round((score||0)*100)));
+  const cf=(conf!=null)?` <span class="muted small">conf ${Math.round(conf*100)}%</span>`:'';
+  return `<div class="meter"><div class="mhead"><span class="mlabel">${label}</span><span class="mval">${(score||0).toFixed(2)}${cf}</span></div>
+    <div class="bar"><div class="fill" style="width:${pct}%"></div></div>${evi?`<div class="evi">${evi.replace(/</g,'&lt;')}</div>`:''}</div>`;
+}
+const RECCOLOR={'Strong Yes':'#42d6a4','Yes':'#7ad19a','Maybe':'#e0a23c','No':'#e0606a'};
+
+function chips(urls){return (urls||[]).filter(Boolean).map(u=>`<a class="chip" href="${u}" target="_blank">${u.replace(/^https?:\/\//,'').slice(0,46)}</a>`).join('');}
+
+function renderCandidate(x){
+  const rec=x.recommendation||'—'; const rc=RECCOLOR[rec]||'#5b6478';
+  const pillars=(x.pillars||[]).map(p=>meter(p.name,p.score)).join('');
+  const metrics=(x.metrics||[]).map(m=>meter(m.metric,m.score,m.confidence,m.evidence)).join('');
+  const notable=(x.notable_work||[]).slice(0,8).map(t=>`<li>${t}</li>`).join('')||'<li class="muted">—</li>';
+  const hooks=(x.highlights||[]).slice(0,8).map(t=>`<li>${t}</li>`).join('')||'<li class="muted">—</li>';
+  const tech=(x.tech_stack||[]).slice(0,18).map(t=>`<span class="tag">${t}</span>`).join('');
+  let links=''; const inv=x.links_inventory||{};
+  for(const cat of ['profiles','code','papers','writing','talks','social','other']){
+    if((inv[cat]||[]).length) links+=`<div><span class="muted small">${cat}</span> ${chips(inv[cat])}</div>`;
+  }
+  const idents=chips((x.identities||[]).map(i=>i.url));
+  const contacts=(x.contacts||[]).map(c=>`<span class="contact">${c.value} <span class="muted">(${c.source})</span></span>`).join('')||'<span class="muted">none found</span>';
+  const sub=[x.location,x.seniority,x.career_stage,(x.company?('@ '+x.company):'')].filter(Boolean).join(' · ');
+  const redflags=(x.red_flags||[]).length?`<h4>Red flags</h4><ul>${x.red_flags.map(r=>`<li>${r}</li>`).join('')}</ul>`:'';
+  return `<div class="cand">
+    <div class="chead">
+      <div class="rank">#${x.rank}</div>
+      <div class="who"><h3>${x.name||x.github||'?'}</h3>
+        <div class="hl">${x.headline||x.role||''}</div><div class="meta">${sub}</div></div>
+      <div class="sbox"><div class="comp">${x.composite.toFixed(2)}</div>
+        <div class="rec" style="background:${rc}">${rec}</div>
+        <div class="muted small">confidence ${Math.round((x.confidence||0)*100)}%</div></div>
+    </div>
+    <p class="summary">${x.summary||''}</p>
+    <p class="muted" style="margin:6px 0"><b>Why choose them:</b> ${x.narrative||''}</p>
+    <div class="cols">
+      <div><h4>Pillars</h4>${pillars||'<span class="muted">—</span>'}
+        <details class="metrics"><summary>All 12 scoring metrics + evidence</summary>${metrics}</details></div>
+      <div><h4>Notable work</h4><ul>${notable}</ul><h4>Outreach hooks</h4><ul>${hooks}</ul><div>${tech}</div>${redflags}</div>
+    </div>
+    <div class="footrow"><div><h4>Profiles</h4>${idents||'<span class="muted">—</span>'}</div><div class="muted small">${x.sources_count} sources</div></div>
+    ${links?`<div><h4>Published links</h4>${links}</div>`:''}
+    <div class="footrow"><div><h4>Contact</h4>${contacts}</div></div>
+  </div>`;
+}
+
+async function showResults(jobId){
+  const r=await (await fetch('/api/results/'+jobId)).json();
+  const res=(r.results&&r.results.candidates)||[];
+  if(!res.length) return;
+  $('resultsHead').style.display='block';
+  $('results').innerHTML=res.map(renderCandidate).join('');
+}
+
+$('runBtn').addEventListener('click', async ()=>{
+  if(es){es.close();}
+  $('console').innerHTML=''; $('results').innerHTML=''; $('resultsHead').style.display='none';
+  $('runBtn').disabled=true; $('dot').className='dot live'; $('status').textContent='Running…';
+  const payload={
+    description:$('description').value, location:$('location').value, role:$('role').value,
+    model:$('model').value, top:+$('top').value, max_rounds:+$('max_rounds').value,
+    max_per_query:+$('max_per_query').value, limit_areas:+$('limit_areas').value, fresh:$('fresh').checked,
+    max_pool:+$('max_pool').value, auto_sources:$('auto_sources').checked,
+    sources:{github_geo:$('s_geo').checked, codeforces:$('s_cf').checked, repos:$('s_repos').checked,
+             huggingface:$('s_hf').checked, publications:$('s_pub').checked}
+  };
+  const {job_id}=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+  es=new EventSource('/api/stream/'+job_id);
+  es.onmessage=async (m)=>{
+    const evt=JSON.parse(m.data);
+    if(evt.stage==='connected') return;
+    if(evt.stage==='end'){
+      es.close(); $('runBtn').disabled=false; $('dot').className='dot';
+      $('status').textContent = evt.status==='error'?'Finished with an error (see log).':'Done.';
+      if(evt.has_results) await showResults(job_id);
+      return;
+    }
+    if(evt.stage==='stage') $('status').textContent=evt.message;
+    logEvent(evt);
+  };
+  es.onerror=()=>{ $('status').textContent='Stream closed.'; $('dot').className='dot'; $('runBtn').disabled=false; };
+});
+</script>
+</body>
+</html>
